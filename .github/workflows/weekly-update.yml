@@ -1,0 +1,40 @@
+name: Weekly Sleeper update
+
+on:
+  schedule:
+    - cron: '0 15 * * 3'   # Wednesdays 15:00 UTC (10am ET), after Monday night scores settle
+  workflow_dispatch:        # "Run workflow" button on the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install openpyxl
+      - name: Pull current season from Sleeper
+        working-directory: build
+        run: python pull_sleeper.py
+      - name: Rebuild the page
+        working-directory: build
+        run: python build_hof.py --merge sleeper_current.json
+      - name: Commit if anything changed
+        run: |
+          git add index.html build/sleeper.json build/hof_data.json
+          if git diff --cached --quiet; then
+            echo "No new results this week."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Weekly Sleeper update"
+          git push
