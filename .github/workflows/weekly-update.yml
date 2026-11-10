@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: weekly-update
@@ -15,6 +17,8 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,13 +32,23 @@ jobs:
         working-directory: build
         run: python build_hof.py --merge sleeper_current.json
       - name: Commit if anything changed
+        id: commit
         run: |
           git add index.html build/sleeper.json build/hof_data.json
           if git diff --cached --quiet; then
             echo "No new results this week."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
           git commit -m "Weekly Sleeper update"
           git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+  # A commit made by this workflow doesn't trigger other workflows, so publish from here.
+  publish:
+    needs: update
+    if: needs.update.outputs.changed == 'true'
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

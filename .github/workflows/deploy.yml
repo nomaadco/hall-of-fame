@@ -1,0 +1,70 @@
+name: Publish site (password protected)
+
+# Encrypts index.html with the league password and publishes it to GitHub Pages.
+# The password lives only in the repo secret SITE_PASSWORD, never in the code.
+# Runs on every push to main that changes the page, after the weekly update, or by hand.
+
+on:
+  push:
+    branches: [main]
+    paths: ['index.html', '.github/workflows/deploy.yml']
+  workflow_dispatch:   # "Run workflow" button on the Actions tab
+  workflow_call:       # used by the weekly update after it commits
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main   # latest main, including a commit the weekly update just made
+      - name: Stop if the password secret is missing
+        env:
+          STATICRYPT_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+        run: |
+          if [ -z "$STATICRYPT_PASSWORD" ]; then
+            echo "::error::Add the SITE_PASSWORD secret (Settings > Secrets and variables > Actions) before publishing."
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Encrypt the page
+        env:
+          STATICRYPT_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+        # The salt is not secret. Keeping it fixed means "Remember me" survives weekly rebuilds.
+        # Changing it (or the password) logs everyone out.
+        run: |
+          npx --yes staticrypt@3.5.4 index.html -d _site -c false \
+            -s 2bd3325caba936593dbbc724dc632451 --short --remember 365 \
+            --template-title "CFFFL Hall of Fame" \
+            --template-instructions "Enter the league password." \
+            --template-placeholder "League password" \
+            --template-button "ENTER" \
+            --template-error "Wrong password." \
+            --template-color-primary "#4f0f1d" \
+            --template-color-secondary "#f6f4ec"
+          touch _site/.nojekyll
+          if [ -f CNAME ]; then cp CNAME _site/; fi
+          if grep -q "Mob Tighes" _site/index.html; then
+            echo "::error::Encrypted page still contains plain text. Not publishing."
+            exit 1
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
