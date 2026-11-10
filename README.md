@@ -1,6 +1,14 @@
 # CFFFL Hall of Fame
 
-Live at https://nomaadco.github.io/hall-of-fame/
+Live at https://carversfinest.com (the old https://nomaadco.github.io/hall-of-fame/ address forwards there).
+
+## Custom domain
+
+`CNAME` holds `carversfinest.com`, and `deploy.yml` copies it into the published site. Because Pages
+publishes from GitHub Actions, the domain itself is set in **Settings → Pages → Custom domain**; the
+file is a record of it. DNS at the registrar: four `A` records for `@` (185.199.108.153, 185.199.109.153,
+185.199.110.153, 185.199.111.153), four `AAAA` records for `@` (2606:50c0:8000::153, 2606:50c0:8001::153,
+2606:50c0:8002::153, 2606:50c0:8003::153) and a `CNAME` for `www` pointing to `nomaadco.github.io`.
 
 ## Weekly updates
 
