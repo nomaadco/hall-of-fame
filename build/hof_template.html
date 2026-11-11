@@ -768,17 +768,13 @@ function viewPlayers(){
 /* ---------- Home ---------- */
 function streaksAll(){ const out=[]; owners.forEach(o=>{const gs=G.filter(isReg).map(g=>({g,...(side(g,o)||{})})).filter(x=>x.res).sort(cmpGame);let best={n:0},cur=null;
   gs.forEach(x=>{if(x.res==='W'){cur=cur?{...cur,n:cur.n+1,to:x.g}:{n:1,from:x.g,to:x.g};if(cur.n>best.n)best=cur;}else cur=null;});if(best.n)out.push({o,...best});}); return out.sort((a,b)=>b.n-a.n);}
-function powerRank(y,upto){
+function powerRank(y,upto){ // Same order as Sleeper: record first, then points for. No custom formula.
   const wk=weekRows(y); const weeks=Object.keys(wk).map(Number).filter(w=>w<=upto).sort((a,b)=>a-b);
   const T={};
-  weeks.forEach(w=>{const rows=wk[w]; const n=rows.length;
-    rows.forEach(r=>{const x=T[r.o]=T[r.o]||{o:r.o,t:r.t,W:0,L:0,T:0,apW:0,apL:0,pts:[]};
-      x[r.res]++; x.pts.push(r.s); x.apW+=rows.filter(z=>z!==r&&z.s<r.s).length; x.apL+=rows.filter(z=>z!==r&&z.s>r.s).length; x.t=r.t;});});
-  const L=Object.values(T); const recent=x=>{const p=x.pts.slice(-3);return p.reduce((s,v)=>s+v,0)/p.length;};
-  const rmax=Math.max(...L.map(recent)), rmin=Math.min(...L.map(recent));
-  L.forEach(x=>{const g=x.W+x.L+x.T; x.wp=(x.W+x.T/2)/g; x.ap=x.apW/(x.apW+x.apL); x.form=(recent(x)-rmin)/((rmax-rmin)||1);
-    x.ppg=x.pts.reduce((s,v)=>s+v,0)/x.pts.length; x.power=100*(0.4*x.wp+0.4*x.ap+0.2*x.form);});
-  return L.sort((a,b)=>b.power-a.power);
+  weeks.forEach(w=>{wk[w].forEach(r=>{const x=T[r.o]=T[r.o]||{o:r.o,t:r.t,W:0,L:0,T:0,pf:0,pa:0};
+      x[r.res]++; x.pf+=r.s; x.t=r.t;});});
+  const L=Object.values(T); L.forEach(x=>{const g=x.W+x.L+x.T; x.wp=(x.W+x.T/2)/g;});
+  return L.sort((a,b)=>b.wp-a.wp||b.pf-a.pf);
 }
 /* ================= v3: shell, shared helpers ================= */
 const ME='Patrick Tighe';
@@ -959,10 +955,10 @@ function viewPower(){
   const drawS=()=>{store.set('pwY',y);const weeks=Object.keys(weekRows(y)).map(Number).sort((a,b)=>a-b);
     pwW.innerHTML=weeks.map(w=>`<option value="${w}"${w===weeks[weeks.length-1]?' selected':''}>After week ${w}</option>`).join('');
     const drawW=()=>{const w=+pwW.value;const pr=powerRank(y,w),prev=w>1?powerRank(y,w-1):[];const pv={};prev.forEach((x,i)=>pv[x.o]=i);
-      pwOut.innerHTML=`<div class="card"><div class="cb" style="padding-top:8px">${pr.map((x,i)=>{const mv=w>1?pv[x.o]-i:0;return `<div class="rrow ${x.o===ME?'me':''}" style="grid-template-columns:26px 34px minmax(0,1fr) 90px 80px auto"><div class="n">${i+1}</div><div class="ini">${inits(x.o)}</div>
-        <div class="nm">${x.o?mlink(x.o):esc(x.t)}<small>${x.W}-${x.L}${x.T?'-'+x.T:''} · ${esc(x.t)}</small></div><div class="wl" style="text-align:right">${x.apW}-${x.apL}<small style="display:block;color:var(--muted);font-size:11px">ALL-PLAY</small></div>
-        <div style="text-align:right">${mv?`<span class="mv ${mv>0?'up':'dn'}">${mv>0?'▲':'▼'}${Math.abs(mv)}</span>`:'<span class="mv" style="color:var(--muted)">—</span>'}</div><div class="big">${x.power.toFixed(1)}<small>Power</small></div></div>`;}).join('')}</div>
-        <div class="cf"><span>Power = 40% record, 40% all-play, 20% form over the last 3 weeks. Regular season only.</span></div></div>`;};
+      pwOut.innerHTML=`<div class="card"><div class="cb" style="padding-top:8px">${pr.map((x,i)=>{const mv=w>1?pv[x.o]-i:0;return `<div class="rrow ${x.o===ME?'me':''}" style="grid-template-columns:26px 34px minmax(0,1fr) 80px auto"><div class="n">${i+1}</div><div class="ini">${inits(x.o)}</div>
+        <div class="nm">${x.o?mlink(x.o):esc(x.t)}<small>${x.W}-${x.L}${x.T?'-'+x.T:''} · ${esc(x.t)}</small></div>
+        <div style="text-align:right">${mv?`<span class="mv ${mv>0?'up':'dn'}">${mv>0?'▲':'▼'}${Math.abs(mv)}</span>`:'<span class="mv" style="color:var(--muted)">—</span>'}</div><div class="big">${fmt(+x.pf.toFixed(2))}<small>PF</small></div></div>`;}).join('')}</div>
+        <div class="cf"><span>Ranked like Sleeper: record first, then points for. Regular season only.</span></div></div>`;};
     pwW.onchange=drawW; drawW();};
   pwY.onchange=()=>{y=+pwY.value;drawS();}; drawS();
 }
