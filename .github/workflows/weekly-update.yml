@@ -2,7 +2,11 @@ name: Weekly Sleeper update
 
 on:
   schedule:
-    - cron: '0 15 * * 3'   # Wednesdays 15:00 UTC (10am ET), after Monday night scores settle
+    # Tuesdays at 12:00 PM Eastern. GitHub schedules are in UTC, and Eastern shifts by an hour
+    # with daylight saving, so it fires at both 16:00 and 17:00 UTC and the first step keeps
+    # only the one that is noon in New York. (GitHub can start scheduled runs a bit late.)
+    - cron: '0 16 * * 2'
+    - cron: '0 17 * * 2'
   workflow_dispatch:        # "Run workflow" button on the Actions tab
 
 permissions:
@@ -15,7 +19,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Fires at 16:00 and 17:00 UTC; only the one that is noon in New York goes ahead.
+  when:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.check.outputs.go }}
+    steps:
+      - id: check
+        run: |
+          go=true
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            want=$([ "${{ github.event.schedule }}" = "0 16 * * 2" ] && echo EDT || echo EST)
+            if [ "$(TZ=America/New_York date +%Z)" != "$want" ]; then
+              echo "Not noon in New York for this trigger. Skipping."
+              go=false
+            fi
+          fi
+          echo "go=$go" >> "$GITHUB_OUTPUT"
+
   update:
+    needs: when
+    if: needs.when.outputs.go == 'true'
     runs-on: ubuntu-latest
     outputs:
       changed: ${{ steps.commit.outputs.changed }}
