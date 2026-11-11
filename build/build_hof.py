@@ -7,6 +7,7 @@ Also writes cfffl-hall-of-fame.html (the same page without the outer HTML skelet
 which is what gets published to the Claude artifact.
 """
 import json, os, subprocess, sys
+from datetime import datetime, timezone
 
 args = sys.argv[1:]
 if '--merge' in args:
@@ -27,7 +28,9 @@ subprocess.run([sys.executable, 'gen_data.py'], check=True)   # ESPN/Yahoo + Sle
 t = open('hof_template.html', encoding='utf-8').read()
 page = (t.replace('__DATA__', open('hof_data.json', encoding='utf-8').read())
          .replace('__EXTRA__', open('extra_data.json', encoding='utf-8').read())
-         .replace('__DG__', json.dumps({'2026': json.load(open('dg2026.json', encoding='utf-8'))})))
+         .replace('__DG__', json.dumps({'2026': json.load(open('dg2026.json', encoding='utf-8'))}))
+         # Build time in UTC; the page shows it in Eastern time (sidebar, under the season box).
+         .replace('__UPDATED__', datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')))
 open('cfffl-hall-of-fame.html', 'w', encoding='utf-8').write(page)
 
 # Standalone page for GitHub Pages: first line of the build is <title>, which goes in <head>.
