@@ -170,6 +170,7 @@ nav.sn a:hover{background:rgba(255,255,255,.07);opacity:1}
 nav.sn a[aria-current="page"]{background:var(--bg);color:var(--ink);opacity:1;font-weight:600;box-shadow:0 1px 0 rgba(0,0,0,.15)}
 nav.sn a[aria-current="page"] svg{color:var(--turf-2)}
 .side .sfoot{margin-top:auto;padding-top:14px}
+.sfupd{margin:8px 2px 0;font:600 11px var(--font-stat);letter-spacing:.08em;text-transform:uppercase;opacity:.6}.sfupd b{display:block;margin-top:2px;font:600 12.5px var(--font-body);letter-spacing:0;text-transform:none}
 .sfcard{border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px 12px;background:rgba(0,0,0,.12);font-size:12.5px}
 .sfcard b{display:flex;justify-content:space-between;font:700 11.5px var(--font-stat);letter-spacing:.14em;text-transform:uppercase;color:var(--brass-hi)}
 .sfcard .meter{height:5px;border-radius:3px;background:rgba(255,255,255,.12);margin:8px 0 6px;overflow:hidden}.sfcard .meter i{display:block;height:100%;background:var(--brass-hi)}
@@ -382,6 +383,7 @@ const DATA = __DATA__;
 const EXTRA = __EXTRA__;
 const DRAFT = EXTRA.draft, TX = EXTRA.tx, PL = EXTRA.players;
 const DG = __DG__;
+const UPDATED = '__UPDATED__'; // UTC time of this build, filled in by build_hof.py
 const EARLY=[ // chat-sourced, timeline only — never counted in stats
   {y:2015,champ:'Rob Murray',ct:'Won the final',ru:'Patrick Tighe',rt:'Lost the final'},
   {y:2014,champ:'Scott Gilmore',ct:'Won the final',ru:'Mike Frazier',rt:'Lost the final'},
@@ -1301,11 +1303,14 @@ function viewDraftGrade(){
 /* ---------- shell ---------- */
 function addHead(k){const h=HEAD[k];if(!h||app.querySelector('.phead'))return;
   app.insertAdjacentHTML('afterbegin',`<div class="phead"><div class="l"><div class="picon">${IC(h[0])}</div><div><div class="eyebrow2">${h[1]}</div><h1 class="ptitle">${h[2]}</h1></div></div></div>`);}
+function updatedLine(){const d=new Date(UPDATED);if(isNaN(d))return '';
+  const s=d.toLocaleString('en-US',{timeZone:'America/New_York',weekday:'short',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  return `<p class="sfupd">Last updated<b>${s} ET</b></p>`;}
 function buildShell(){
   sideNav.innerHTML=`<div class="brandrow"><div class="mark">CF</div><div class="bt">CFFFL<small>Hall of Fame</small></div></div>
     <div class="lgchip">Carvers Finest FFL <span>${seasons.length} seasons</span></div>
     ${NAV.map(([g,items])=>`<div class="navgrp">${g}</div><nav class="sn" aria-label="${g}">${items.map(([k,ic,l])=>`<a href="#${k}">${IC(ic)}<span>${l}</span></a>`).join('')}</nav>`).join('')}
-    <div class="sfoot"><div class="sfcard"><b><span>${liveY||seasons[seasons.length-1]} season</span><span>${liveW?'Wk '+liveW:'Final'}</span></b><div class="meter"><i style="width:${liveW?Math.round(100*liveW/14):100}%"></i></div><p>${liveW?`${14-liveW} regular-season weeks left`:'Season complete'}</p></div></div>`;
+    <div class="sfoot"><div class="sfcard"><b><span>${liveY||seasons[seasons.length-1]} season</span><span>${liveW?'Wk '+liveW:'Final'}</span></b><div class="meter"><i style="width:${liveW?Math.round(100*liveW/14):100}%"></i></div><p>${liveW?`${14-liveW} regular-season weeks left`:'Season complete'}</p></div>${updatedLine()}</div>`;
   menuBtn.onclick=()=>document.body.classList.toggle('menu'); scrim.onclick=()=>document.body.classList.remove('menu');
 }
 
