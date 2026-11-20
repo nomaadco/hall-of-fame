@@ -384,7 +384,7 @@ const EXTRA = __EXTRA__;
 const DRAFT = EXTRA.draft, TX = EXTRA.tx, PL = EXTRA.players;
 const DG = __DG__;
 const UPDATED = '__UPDATED__'; // UTC time of this build, filled in by build_hof.py
-const EARLY=[ // chat-sourced, timeline only — never counted in stats
+const EARLY=[ // timeline only — never counted in stats
   {y:2015,champ:'Rob Murray',ct:'Won the final',ru:'Patrick Tighe',rt:'Lost the final'},
   {y:2014,champ:'Scott Gilmore',ct:'Won the final',ru:'Mike Frazier',rt:'Lost the final'},
   {y:2013,champ:'Brandon Zamora',ct:'Team No Foam',ru:'Rob Murray',rt:'That Good Good',note:'League founded by Brandon Zamora'}];
@@ -1137,12 +1137,11 @@ function viewTimeline(){
   const runs=[];Object.keys(COMMISH).map(Number).sort((p,q)=>p-q).forEach(y=>{const o=COMMISH[y],l=runs[runs.length-1];if(l&&l.o===o&&l.to===y-1)l.to=y;else runs.push({o,from:y,to:y});});
   app.innerHTML=`<div class="card" style="margin-bottom:6px"><div class="ch"><div><div class="eyebrow2">Keepers of the keys</div><h3>Commissioners</h3></div></div>
     <div class="cb"><div class="tiles" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${runs.slice().reverse().map(r=>`<div class="panel tile" style="box-shadow:none"><div class="k">${r.from}${r.to!==r.from?'–'+(r.to===Math.max(...seasons)?'present':r.to):''}</div><div class="w" style="font-size:17px">${mlink(r.o)}</div><div class="s">${r.to-r.from+1} season${r.to===r.from?'':'s'}</div></div>`).join('')}</div></div></div>
-    <div class="tl">${items.join('')}${EARLY.map(e=>`<div class="tly early"><div class="yr"><b>${e.y}<sup>*</sup></b><small>Pre-stats era</small></div><div class="dot"></div><ul>
-      <li><div class="ic gold">${IC('trophy')}</div><div><b>${esc(e.champ)}*</b> took the title<small>${esc(e.ct)}</small></div></li>
-      <li><div class="ic">${IC('medal')}</div><div>Runner-up: ${esc(e.ru)}*<small>${esc(e.rt)}</small></div></li>
+    <div class="tl">${items.join('')}${EARLY.map(e=>`<div class="tly early"><div class="yr"><b>${e.y}</b><small>Pre-stats era</small></div><div class="dot"></div><ul>
+      <li><div class="ic gold">${IC('trophy')}</div><div><b>${esc(e.champ)}</b> took the title<small>${esc(e.ct)}</small></div></li>
+      <li><div class="ic">${IC('medal')}</div><div>Runner-up: ${esc(e.ru)}<small>${esc(e.rt)}</small></div></li>
       <li><div class="ic gold">${IC('gavel')}</div><div>Commissioner: ${esc(COMMISH[e.y])}</div></li>
-      ${e.note?`<li><div class="ic">${IC('flag')}</div><div>${esc(e.note)}*</div></li>`:''}</ul></div>`).join('')}</div>
-    <p class="note" style="margin-top:18px">* ${EARLY[EARLY.length-1].y}–${EARLY[0].y} results come from the league group chat. No scores, records or standings survive from those seasons, so they are shown here only and don't count toward titles, records, head-to-head or any other stats.</p>`;
+      ${e.note?`<li><div class="ic">${IC('flag')}</div><div>${esc(e.note)}</div></li>`:''}</ul></div>`).join('')}</div>`;
 }
 
 /* ---------- Managers ---------- */
