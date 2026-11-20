@@ -1118,22 +1118,26 @@ function viewRecordBook(){
 /* ---------- Timeline ---------- */
 function viewTimeline(){
   const own=y=>new Set((DATA.finish[y]||[]).map(t=>t.owner).filter(Boolean));
+  // Newest first everywhere: newest season on top, and each season starts with the title and works back to the offseason.
+  // Events are pushed in the order they happen, then reversed below.
   const items=[...seasons].reverse().map(y=>{const prev=seasons[seasons.indexOf(y)-1];const ev=[];
     const live=DATA.inprogress[y];
-    if(!live){const c=DATA.finish[y][0];ev.push(['trophy',`<b>${mlink(c.owner)}</b> took the title`,esc(c.team),'gold']);}
-    else ev.push(['loader',`Season in progress`,`Through week ${live}`]);
+    if(!prev) ev.push(['flag','Stats era begins','First season with full scores and standings (ESPN, 10 teams)']);
     const cm=COMMISH[y], pcm=COMMISH[y-1];
     if(cm) ev.push(['gavel',cm!==pcm?`<b>${mlink(cm)}</b> takes over as commissioner`:`Commissioner: ${mlink(cm)}`,cm!==pcm&&pcm?`Took the keys from ${esc(pcm)}`:'','gold']);
-    if(prev){const a=own(prev),b=own(y);[...b].filter(o=>!a.has(o)&&!seasons.slice(0,seasons.indexOf(y)).some(s=>own(s).has(o))).forEach(o=>ev.push(['user-plus','Promoted in',mlink(o)]));
-      [...b].filter(o=>!a.has(o)&&seasons.slice(0,seasons.indexOf(y)).some(s=>own(s).has(o))).forEach(o=>ev.push(['rotate-ccw','Returned',mlink(o)]));
+    if(prev&&DATA.platform[prev]!==DATA.platform[y]) ev.push(['arrow-right-left',`Moved from ${DATA.platform[prev]} to ${DATA.platform[y]}`,'']);
+    if(prev){const a=own(prev),b=own(y);
       [...a].filter(o=>!b.has(o)).forEach(o=>ev.push(['arrow-down',`<b>Relegated</b> after ${prev}`,`${mlink(o)} · finished ${ord(DATA.finish[prev].findIndex(t=>t.owner===o)+1)}`]));
-      if(DATA.platform[prev]!==DATA.platform[y]) ev.push(['arrow-right-left',`Moved from ${DATA.platform[prev]} to ${DATA.platform[y]}`,'']);}
-    else ev.push(['flag','Stats era begins','First season with full scores and standings (ESPN, 10 teams)']);
+      [...b].filter(o=>!a.has(o)&&!seasons.slice(0,seasons.indexOf(y)).some(s=>own(s).has(o))).forEach(o=>ev.push(['user-plus','Promoted in',mlink(o)]));
+      [...b].filter(o=>!a.has(o)&&seasons.slice(0,seasons.indexOf(y)).some(s=>own(s).has(o))).forEach(o=>ev.push(['rotate-ccw','Returned',mlink(o)]));
+    }
     const kp=(DRAFT[y]||[]).filter(p=>p.k).length; if(kp) ev.push(['lock',`Keepers arrive`,`${kp} kept players in the auction`]);
-    const L=Object.values(seasonLuck(y)); const top=L.sort((a,b)=>b.pf-a.pf)[0]; if(top&&!live) ev.push(['zap','Points leader',`${mlink(top.o)} · ${fmt(+top.pf.toFixed(1))}`]);
-    const ws=G.filter(g=>g.season===y&&isReg(g)).flatMap(g=>[[g.sA,g.oA,g.week],[g.sB,g.oB,g.week]]).sort((a,b)=>b[0]-a[0])[0]; if(ws) ev.push(['flame','Week high',`${mlink(ws[1])} · ${fmt(ws[0])} in week ${ws[2]}`]);
     const tr=TX.filter(t=>t.s===y&&t.ty==='trade').length; if(TX.some(t=>t.s===y)) ev.push(['arrow-left-right',`${tr} trade${tr===1?'':'s'}, ${TX.filter(t=>t.s===y&&t.ty!=='trade'&&t.ty!=='commish').length} waiver moves`,'']);
-    return `<div class="tly"><div class="yr"><b>${y}</b><small>${DATA.platform[y]} · ${(DATA.finish[y]||[]).length} teams</small></div><div class="dot"></div><ul>${ev.map(([i,t,s,c])=>`<li><div class="ic ${c||''}">${IC(i)}</div><div>${t}${s?`<small>${s}</small>`:''}</div></li>`).join('')}</ul></div>`;});
+    const ws=G.filter(g=>g.season===y&&isReg(g)).flatMap(g=>[[g.sA,g.oA,g.week],[g.sB,g.oB,g.week]]).sort((a,b)=>b[0]-a[0])[0]; if(ws) ev.push(['flame','Week high',`${mlink(ws[1])} · ${fmt(ws[0])} in week ${ws[2]}`]);
+    const L=Object.values(seasonLuck(y)); const top=L.sort((a,b)=>b.pf-a.pf)[0]; if(top&&!live) ev.push(['zap','Points leader',`${mlink(top.o)} · ${fmt(+top.pf.toFixed(1))}`]);
+    if(!live){const c=DATA.finish[y][0];ev.push(['trophy',`<b>${mlink(c.owner)}</b> took the title`,esc(c.team),'gold']);}
+    else ev.push(['loader',`Season in progress`,`Through week ${live}`]);
+    return `<div class="tly"><div class="yr"><b>${y}</b><small>${DATA.platform[y]} · ${(DATA.finish[y]||[]).length} teams</small></div><div class="dot"></div><ul>${ev.reverse().map(([i,t,s,c])=>`<li><div class="ic ${c||''}">${IC(i)}</div><div>${t}${s?`<small>${s}</small>`:''}</div></li>`).join('')}</ul></div>`;});
   const runs=[];Object.keys(COMMISH).map(Number).sort((p,q)=>p-q).forEach(y=>{const o=COMMISH[y],l=runs[runs.length-1];if(l&&l.o===o&&l.to===y-1)l.to=y;else runs.push({o,from:y,to:y});});
   app.innerHTML=`<div class="card" style="margin-bottom:6px"><div class="ch"><div><div class="eyebrow2">Keepers of the keys</div><h3>Commissioners</h3></div></div>
     <div class="cb"><div class="tiles" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${runs.slice().reverse().map(r=>`<div class="panel tile" style="box-shadow:none"><div class="k">${r.from}${r.to!==r.from?'–'+(r.to===Math.max(...seasons)?'present':r.to):''}</div><div class="w" style="font-size:17px">${mlink(r.o)}</div><div class="s">${r.to-r.from+1} season${r.to===r.from?'':'s'}</div></div>`).join('')}</div></div></div>
