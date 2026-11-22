@@ -198,6 +198,15 @@ footer{max-width:1180px;width:100%;margin:0 auto;padding:0 28px 32px}
 .statbox b{display:block;font:800 20px/1.05 var(--font-display)}
 .statbox span{font:600 11px var(--font-stat);letter-spacing:.12em;text-transform:uppercase;opacity:.7}
 .statbox .dk span{color:var(--brass-hi);opacity:1}
+/* graphical standings */
+.gs-wrap{position:relative;width:100%}
+.gs-wrap svg{display:block;width:100%;height:auto}
+.gs-wrap .gl{fill:none;stroke-linejoin:round;stroke-linecap:round;transition:opacity .15s,stroke-width .15s}
+.gs-key{display:flex;flex-wrap:wrap;gap:6px 8px;margin-top:10px}
+.gs-key button{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--raised);border-radius:999px;padding:4px 10px 4px 6px;font:600 12.5px var(--font-body);color:var(--ink);cursor:pointer}
+.gs-key button i{width:14px;height:14px;border-radius:50%;flex:none}
+.gs-key button small{color:var(--muted);font-weight:600}
+.gs-key button[aria-pressed="true"]{border-color:var(--ink);background:var(--panel)}
 /* cards */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
 .card .ch{padding:16px 18px 10px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
@@ -948,11 +957,78 @@ function viewMatchups(){
   muY.onchange=()=>{y=+muY.value;drawSeason();}; drawSeason();
 }
 
+
+/* ---------- Graphical standings (games over .500, week by week) ---------- */
+const GS_COL=['#4f0f1d','#c8901c','#1f6f8b','#2f7d4f','#d2601a','#6a4c93','#d1477a','#4a4a4a','#4fa3d9','#8a9a2b','#9b2d20','#2bb3a3'];
+function gsSeries(y){
+  const wk=weekRows(y); const weeks=Object.keys(wk).map(Number).sort((a,b)=>a-b);
+  const S={};
+  weeks.forEach(w=>wk[w].forEach(r=>{const k=r.o||r.t;const x=S[k]=S[k]||{o:r.o,t:r.t,W:0,L:0,T:0,pts:[[0,0]]};
+    x[r.res]++; x.t=r.t; x.pts.push([w,x.W-x.L]);}));
+  const order=powerRank(y,weeks[weeks.length-1]||0).map(x=>x.o||x.t);
+  const L=order.map(k=>S[k]).filter(Boolean);
+  L.forEach((x,i)=>x.c=GS_COL[i%GS_COL.length]);
+  return {weeks,L};
+}
+function drawStandingsChart(el,y,sel){
+  const {weeks,L}=gsSeries(y); if(!weeks.length||!L.length){el.innerHTML='<p class="note">No games yet.</p>';return;}
+  const W=Math.max(300,el.clientWidth||700), small=W<560;
+  const H=Math.round(Math.min(560,Math.max(320,W*0.56)));
+  const fs=small?11:13, padL=small?30:44, padR=small?40:52, padT=small?16:22, padB=small?34:44;
+  const maxW=weeks[weeks.length-1];
+  let lo=0,hi=0; L.forEach(s=>s.pts.forEach(p=>{lo=Math.min(lo,p[1]);hi=Math.max(hi,p[1]);}));
+  const m=Math.max(2,Math.abs(lo),Math.abs(hi)); lo=-m; hi=m;   // symmetric around .500, like the NFL chart
+  const X=w=>padL+(W-padL-padR)*w/maxW, Yv=v=>padT+(H-padT-padB)*(hi-v)/(hi-lo);
+  const n=L.length, jit=small?1.6:2.4; // tiny offset per team so lines that share a path stay visible
+  const off=i=>(i-(n-1)/2)*jit;
+  const ystep=m>8?2:1;
+  let g='';
+  for(let v=lo;v<=hi;v+=ystep){g+=`<line x1="${padL}" x2="${W-padR+6}" y1="${Yv(v)}" y2="${Yv(v)}" stroke="${v===0?'#8b8580':'var(--line)'}" stroke-width="${v===0?1.5:1}"/>`+
+    `<text x="${padL-6}" y="${Yv(v)+4}" text-anchor="end" font-size="${fs}" fill="var(--muted)">${v>0?'+'+v:v===0?'.500':'−'+Math.abs(v)}</text>`;}
+  const xs=[0,...weeks]; const xstep=small&&maxW>12?2:1;
+  xs.forEach(w=>{if(w%xstep)return;g+=`<line x1="${X(w)}" x2="${X(w)}" y1="${padT}" y2="${H-padB}" stroke="var(--line)"/>`+
+    `<text x="${X(w)}" y="${H-padB+fs+6}" text-anchor="middle" font-size="${fs}" fill="var(--muted)">${w}</text>`;});
+  g+=`<text x="${(padL+W-padR)/2}" y="${H-4}" text-anchor="middle" font-size="${fs}" font-weight="700" fill="var(--ink)">Week</text>`;
+  const lw=small?3:5;
+  const lines=L.map((s,i)=>{const on=!sel||sel===(s.o||s.t);const d=s.pts.map((p,j)=>`${j?'L':'M'}${X(p[0]).toFixed(1)},${(Yv(p[1])+off(i)).toFixed(1)}`).join('');
+    return {i,on,svg:`<path class="gl" d="${d}" stroke="${s.c}" stroke-width="${sel&&on?lw+2:lw}" opacity="${on?1:.13}"><title>${esc(s.o||s.t)} · ${s.W}-${s.L}${s.T?'-'+s.T:''}</title></path>`};});
+  // highlighted line drawn last so it sits on top
+  g+=lines.filter(l=>!l.on).map(l=>l.svg).join('')+lines.filter(l=>l.on).map(l=>l.svg).join('');
+  // end-of-line badges (initials), nudged apart so ties don't overlap
+  const r=small?9:12, gap=r*2+2;
+  const ends=L.map((s,i)=>({s,i,y:Yv(s.pts[s.pts.length-1][1])+off(i)})).sort((a,b)=>a.y-b.y);
+  for(let k=1;k<ends.length;k++) if(ends[k].y-ends[k-1].y<gap) ends[k].y=ends[k-1].y+gap;
+  const over=ends.length?ends[ends.length-1].y-(H-padB+r):0; if(over>0) ends.forEach(e=>e.y-=over);
+  for(let k=ends.length-2;k>=0;k--) if(ends[k+1].y-ends[k].y<gap) ends[k].y=ends[k+1].y-gap;
+  const bx=W-padR+r+6;
+  g+=ends.map(e=>{const s=e.s,on=!sel||sel===(s.o||s.t),ly=Yv(s.pts[s.pts.length-1][1])+off(e.i);
+    return `<g opacity="${on?1:.25}" data-k="${esc(s.o||s.t)}" style="cursor:pointer"><line x1="${X(maxW)}" y1="${ly}" x2="${bx-r}" y2="${e.y}" stroke="${s.c}" stroke-width="1.2"/>
+      <circle cx="${bx}" cy="${e.y}" r="${r}" fill="${s.c}"/><text x="${bx}" y="${e.y+(small?3.5:4.5)}" text-anchor="middle" font-size="${small?8.5:11}" font-weight="800" fill="#fff">${inits(s.o||s.t)}</text><title>${esc(s.o||s.t)}</title></g>`;}).join('');
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Games over .500 by week, ${y}" font-family="var(--font-stat)">${g}</svg>`;
+}
+function standingsChartCard(y){
+  const live=DATA.inprogress[y];
+  return `<div class="card" style="margin-bottom:16px"><div class="ch"><div><div class="eyebrow2">Graphical standings · ${y}</div><h3>Race to the top</h3></div></div>
+    <div class="cb"><div class="gs-wrap" id="gsChart"></div><div class="gs-key" id="gsKey"></div></div>
+    <div class="cf"><span>Each line is a team's record as games over .500 after every week (5-2 = +3). Tap a name to follow one team. ${live?`Through week ${live}; updates with the weekly Sleeper pull.`:'Regular season only.'}</span></div></div>`;
+}
+function wireStandingsChart(y){
+  const el=document.getElementById('gsChart'), key=document.getElementById('gsKey'); if(!el) return;
+  let sel=null; const {L}=gsSeries(y);
+  const draw=()=>{drawStandingsChart(el,y,sel);
+    key.innerHTML=L.map(s=>{const k=s.o||s.t,d=s.W-s.L;return `<button type="button" data-k="${esc(k)}" aria-pressed="${sel===k}"><i style="background:${s.c}"></i>${esc(k)} <small>${s.W}-${s.L}${s.T?'-'+s.T:''}</small></button>`;}).join('');};
+  const pick=k=>{sel=sel===k?null:k;draw();};
+  key.onclick=e=>{const b=e.target.closest('button');if(b)pick(b.dataset.k);};
+  el.onclick=e=>{const b=e.target.closest('[data-k]');pick(b?b.dataset.k:sel);};
+  draw();
+  let rt; const ro=()=>{clearTimeout(rt);rt=setTimeout(()=>{if(document.body.contains(el))draw();else window.removeEventListener('resize',ro);},120);};
+  window.addEventListener('resize',ro);
+}
 /* ---------- Power rankings ---------- */
 function viewPower(){
   let y=+store.get('pwY'); if(!seasons.includes(y)) y=liveY||seasons[seasons.length-1];
-  app.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap"><select id="pwY" style="max-width:160px" aria-label="Season">${[...seasons].reverse().map(s=>`<option${s===y?' selected':''}>${s}</option>`).join('')}</select><select id="pwW" style="max-width:200px" aria-label="Week"></select></div><div id="pwOut" style="margin-top:16px"></div>`;
-  const drawS=()=>{store.set('pwY',y);const weeks=Object.keys(weekRows(y)).map(Number).sort((a,b)=>a-b);
+  app.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap"><select id="pwY" style="max-width:160px" aria-label="Season">${[...seasons].reverse().map(s=>`<option${s===y?' selected':''}>${s}</option>`).join('')}</select><select id="pwW" style="max-width:200px" aria-label="Week"></select></div><div id="gsOut" style="margin-top:16px"></div><div id="pwOut"></div>`;
+  const drawS=()=>{store.set('pwY',y);gsOut.innerHTML=standingsChartCard(y);wireStandingsChart(y);const weeks=Object.keys(weekRows(y)).map(Number).sort((a,b)=>a-b);
     pwW.innerHTML=weeks.map(w=>`<option value="${w}"${w===weeks[weeks.length-1]?' selected':''}>After week ${w}</option>`).join('');
     const drawW=()=>{const w=+pwW.value;const pr=powerRank(y,w),prev=w>1?powerRank(y,w-1):[];const pv={};prev.forEach((x,i)=>pv[x.o]=i);
       pwOut.innerHTML=`<div class="card"><div class="cb" style="padding-top:8px">${pr.map((x,i)=>{const mv=w>1?pv[x.o]-i:0;return `<div class="rrow ${x.o===ME?'me':''}" style="grid-template-columns:26px 34px minmax(0,1fr) 80px auto"><div class="n">${i+1}</div><div class="ini">${inits(x.o)}</div>
